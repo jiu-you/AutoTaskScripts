@@ -15,9 +15,10 @@ cron: 10 9,10 * * *
 2025/6/11   V1.1    变量增加邮箱密码支持
 2025/6/17   V1.2    增加cookie存储功能
 2025/7/28   V1.3    修改头部注释，以便拉库
+2025/8/27   V1.4    修改默认域名
 """
 
-DEFAULT_HOST = "sxsy19.com" # 默认域名
+DEFAULT_HOST = "sxsy21.com" # 默认域名
 
 import requests
 import os
