@@ -2,7 +2,7 @@
 作者: 临渊
 日期: 2025/6/17
 name: 司机社
-入口: 网站 (https://sijishecn.cc/)
+入口: 网站 (https://sjs47.com/)
 功能: 登录、签到
 变量: sijishe='邮箱&密码' 或者 'cookie'
 自动检测，多个账号用换行分割
@@ -13,6 +13,7 @@ cron: 10 9,10 * * *
 ------------更新日志------------
 2025/6/17   V1.0    初始化，完成签到功能
 2025/7/28   V1.1    修改头部注释，以便拉库
+2025/8/27   V1.2    增加尝试获取最新域名
 """
 
 import requests
@@ -25,9 +26,12 @@ import base64
 import random
 import time
 import json
+from bs4 import BeautifulSoup
 from datetime import datetime
 
 DDDD_OCR_URL = os.getenv("DDDD_OCR_URL") or "" # dddd_ocr地址
+DEFAULT_GUIDE_URL = "https://47447.net/" # 默认发布地址
+DEFAULT_HOST = "sjs47.com" # 默认域名
 
 class AutoTask:
     def __init__(self, site_name, default_host):
@@ -74,6 +78,32 @@ class AutoTask:
         except Exception as e:
             logging.error(f"[检查环境变量]发生错误: {str(e)}\n{traceback.format_exc()}")
             raise
+
+    def get_host(self):
+        """
+        获取最新域名
+        :return: 域名
+        """
+        try:
+            url = DEFAULT_GUIDE_URL
+            response = requests.get(url)
+            response.encoding = 'utf-8'
+            soup = BeautifulSoup(response.text, 'html.parser')
+            links = soup.find_all('a')
+            for link in links:
+                link_text = link.get_text(strip=True)
+                if re.search(r'打开网站', link_text):
+                    href_value = link.get('href')
+                    if href_value.startswith("http"):
+                        host = href_value.split("//")[1]
+                        logging.info(f"[获取最新域名]最新域名: {host}")
+                        return host
+                    else:
+                        return href_value
+            return DEFAULT_HOST
+        except Exception as e:
+            logging.error(f"[获取最新域名]发生错误: {str(e)}\n{traceback.format_exc()}")
+            return DEFAULT_HOST
 
     def get_param(self, host, session):
         """
@@ -434,6 +464,7 @@ class AutoTask:
         """
         try:
             logging.info(f"【{self.site_name}】开始执行任务")
+            self.default_host = self.get_host()
 
             # 首先尝试读取cookie文件
             accounts = self.read_cookie_file()
@@ -469,7 +500,6 @@ class AutoTask:
                 except Exception as e:
                     logging.error(f"[Cookie文件]删除失效cookie文件失败: {str(e)}")
 
-            host = self.default_host
             for index, (email, password, cookie) in enumerate(self.check_env(), 1):
                 logging.info("")
                 logging.info(f"------【账号{index}】开始执行任务------")
@@ -496,7 +526,7 @@ class AutoTask:
                         continue
                 else:
                     logging.info(f"[检查环境变量]检测到邮箱密码，将进行登录")
-                    formhash, seccodehash, loginhash = self.get_param(host, session)
+                    formhash, seccodehash, loginhash = self.get_param(self.default_host, session)
                     if not all([formhash, seccodehash, loginhash]):
                         logging.error("获取参数失败，跳过当前账号")
                         continue
@@ -504,9 +534,9 @@ class AutoTask:
                     max_retries = 3
                     retry_count = 0
                     while retry_count < max_retries:
-                        login_in_captcha = self.get_captcha_img(host, seccodehash, session)
+                        login_in_captcha = self.get_captcha_img(self.default_host, seccodehash, session)
                         login_in_captcha_text = self.get_captcha_text(login_in_captcha, ocr_url)
-                        if self.check_captcha(host, login_in_captcha_text, session, seccodehash):
+                        if self.check_captcha(self.default_host, login_in_captcha_text, session, seccodehash):
                             break
 
                         retry_count += 1
@@ -517,7 +547,7 @@ class AutoTask:
                             logging.error("[验证码]验证失败，已达到最大重试次数")
                             continue
 
-                    if not self.login_in(host, email, password, formhash, login_in_captcha_text, session, loginhash, seccodehash):
+                    if not self.login_in(self.default_host, email, password, formhash, login_in_captcha_text, session, loginhash, seccodehash):
                         logging.error("登录失败，跳过当前账号")
                         continue
 
@@ -540,8 +570,7 @@ class AutoTask:
 
 if __name__ == "__main__":
     site_name = "司机社"
-    default_host = "sijishecn.cc"
     ocr_url = DDDD_OCR_URL
 
-    auto_task = AutoTask(site_name, default_host)
+    auto_task = AutoTask(site_name, DEFAULT_HOST)
     session = auto_task.run(ocr_url)
