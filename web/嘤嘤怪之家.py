@@ -2,7 +2,7 @@
 作者: 临渊
 日期: 2025/6/8
 name: 嘤嘤怪之家
-入口: 网站 (https://yyg.boats/)
+入口: 网站 (https://yyg.app/)
 功能: 登录、签到、评论（每日上限30积分）
 变量: yyg='账号&密码'  多个账号用换行分割
     DDDD_OCR_URL (dddd_ocr地址)
@@ -14,6 +14,7 @@ cron: 10 9,10 * * *
 2025/6/11   V1.2    优化代码结构，使用session管理cookie，添加查询积分功能（不一定成功）
 2025/7/23   V1.3    更新域名
 2025/7/28   V1.4    修改头部注释，以便拉库
+2025/8/27   V1.5    增加尝试获取最新域名
 """
 
 import requests
@@ -28,6 +29,8 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 
 DDDD_OCR_URL = os.getenv("DDDD_OCR_URL") or "" # dddd_ocr地址
+DEFAULT_GUIDE_URL = "https://yyg.autos/" # 默认发布地址
+DEFAULT_HOST = "yyg.app" # 默认域名
 
 class AutoTask:
     def __init__(self, site_name):
@@ -72,6 +75,32 @@ class AutoTask:
         except Exception as e:
             logging.error(f"[检查cookie]发生错误: {str(e)}\n{traceback.format_exc()}")
             raise
+
+    def get_host(self):
+        """
+        获取最新域名
+        :return: 域名
+        """
+        try:
+            url = DEFAULT_GUIDE_URL
+            response = requests.get(url)
+            response.encoding = 'utf-8'
+            soup = BeautifulSoup(response.text, 'html.parser')
+            links = soup.find_all('a')
+            for link in links:
+                link_text = link.get_text(strip=True)
+                if re.search(r'访问最新域名', link_text):
+                    href_value = link.get('href')
+                    if href_value.startswith("http"):
+                        host = href_value.split("//")[1]
+                        logging.info(f"[获取最新域名]最新域名: {host}")
+                        return host
+                    else:
+                        return href_value
+            return DEFAULT_HOST
+        except Exception as e:
+            logging.error(f"[获取最新域名]发生错误: {str(e)}\n{traceback.format_exc()}")
+            return DEFAULT_HOST
 
     def get_captcha_img(self, host, session, type):
         """
@@ -356,7 +385,7 @@ class AutoTask:
         """
         try:
             logging.info(f"【{self.site_name}】开始执行任务")
-            host = "yyg.boats"
+            host = self.get_host()
 
             for index, (username, password) in enumerate(self.check_cookie(), 1):
                 logging.info("")
