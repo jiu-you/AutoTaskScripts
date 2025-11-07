@@ -186,9 +186,9 @@ class AutoTask:
             payload = {
                 'image': img_base64
             }
-            response = requests.post(ocr_url, data=payload).json()
-            if response['code'] == 200:
-                return response['data']
+            response = requests.post(ocr_url, json=payload).json()
+            if response['result']:
+                return response['result']
             else:
                 logging.error(f"[获取验证码]发生错误: {response['message']}")
                 return None
