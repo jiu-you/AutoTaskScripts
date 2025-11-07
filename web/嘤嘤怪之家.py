@@ -121,6 +121,9 @@ class AutoTask:
                 }
                 response = session.get(url, headers=headers).json()
                 if 'img' in response:
+                    prefix = "data:image/png;base64,"
+                    if response['img'].startswith(prefix):
+                        return response['img'].replace(prefix, "", 1)
                     return response['img']
                 else:
                     retry_count += 1
@@ -146,9 +149,9 @@ class AutoTask:
             payload = {
                 'image': img
             }
-            response = requests.post(url, data=payload).json()
-            if response['code'] == 200:
-                return response['data']
+            response = requests.post(url, json=payload).json()
+            if response['result']:
+                return response['result']
             else:
                 logging.error(f"[获取验证码]发生错误: {response['message']}")
                 return None
